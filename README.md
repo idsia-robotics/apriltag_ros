@@ -58,7 +58,7 @@ Instead of publishing all tag poses, the list `tag.ids` can be used to only publ
 
 The remaining parameters are set to the their default values from the library. See `apriltag.h` for a more detailed description of their function.
 
-See [tags_36h11.yaml](cfg/tags_36h11.yaml) for an example configuration that publishes specific tag poses of the 36h11 family.
+See [tags_36h11.yaml](config/tags_36h11.yaml) for an example configuration that publishes specific tag poses of the 36h11 family.
 
 ## Nodes
 
@@ -69,7 +69,7 @@ The `apriltag_node` executable can be launched with topic remappings and a confi
 ros2 run apriltag_ros apriltag_node --ros-args \
     -r image_rect:=/camera/image \
     -r camera_info:=/camera/camera_info \
-    --params-file `ros2 pkg prefix apriltag_ros`/share/apriltag_ros/cfg/tags_36h11.yaml
+    --params-file `ros2 pkg prefix apriltag_ros`/share/apriltag_ros/config/tags_36h11.yaml
 ```
 
 ### Composable Node

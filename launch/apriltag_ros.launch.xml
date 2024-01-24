@@ -1,0 +1,41 @@
+<launch>
+    <arg name="image_rect_topic_name" default="/rm_demo/camera/image_color" />
+    <arg name="camera_info_topic_name" default="/rm_demo/camera/camera_info" />
+    
+    <arg name="image_transport" default="raw" />                <!-- image format -->
+    <arg name="family" default="36h11" />                       <!-- tag family name -->
+    <arg name="size" default="0.150" />                         <!-- tag edge size in meter -->
+    <arg name="max_hamming" default="1" />                      <!-- maximum allowed hamming distance (corrected bits) -->
+    <arg name="min_seconds_between_detections" default="1.0" /> <!-- maximum allowed hamming distance (corrected bits) -->
+    
+    <arg name="detector.threads" default="1" />          <!-- number of threads -->
+    <arg name="detector.decimate" default="2.0" />       <!-- decimate resolution for quad detection -->
+    <arg name="detector.blur" default="0.0" />           <!-- sigma of Gaussian blur for quad detection -->
+    <arg name="detector.refine" default="1" />           <!-- snap to strong gradients -->
+    <arg name="detector.sharpening" default="0.25" />    <!-- sharpening of decoded images -->
+    <arg name="detector.debug" default="0" />            <!-- write additional debugging images to current working directory -->
+
+    <arg name="tag.ids" default= "[3]" />                 <!-- tag IDs -->
+    <arg name="tag.frames" default= "[apriltag_frame]" /> <!-- optional frame name [base, object] -->
+    <arg name="tag.sizes" default= "[0.15]" />            <!-- optional tag-specific edge size -->
+
+    <node pkg="apriltag_ros" exec="apriltag_node" name="apriltag_detector" output="screen">
+        <remap from="image_rect" to="$(var image_rect_topic_name)"/>
+        <remap from="camera_info" to="$(var camera_info_topic_name)"/>
+        <param name="image_transport"                value="$(var image_transport)"/>
+        <param name="family"                         value="$(var family)"/>
+        <param name="size"                           value="$(var size)"/>
+        <param name="max_hamming"                    value="$(var max_hamming)"/>
+        <param name="min_seconds_between_detections" value="$(var min_seconds_between_detections)"/>
+        <param name="detector.threads"    value="$(var detector.threads)"/>
+        <param name="detector.decimate"   value="$(var detector.decimate)"/>
+        <param name="detector.blur"       value="$(var detector.blur)"/>
+        <param name="detector.refine"     value="$(var detector.refine)"/>
+        <param name="detector.sharpening" value="$(var detector.sharpening)"/>
+        <param name="detector.debug"      value="$(var detector.debug)"/>
+        <param name="tag.ids"    value="$(var tag.ids)"/>
+        <param name="tag.frames" value="$(var tag.frames)"/>
+        <param name="tag.sizes"  value="$(var tag.sizes)"/>
+    </node>
+
+</launch>

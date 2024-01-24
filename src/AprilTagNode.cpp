@@ -117,6 +117,9 @@ private:
 
     std::function<void(apriltag_family_t*)> tf_destructor;
 
+    bool detection_timer_done = true;
+    rclcpp::TimerBase::SharedPtr detection_timer;
+
     const image_transport::CameraSubscriber sub_cam;
     const rclcpp::Publisher<apriltag_msgs::msg::AprilTagDetectionArray>::SharedPtr pub_detections;
     tf2_ros::TransformBroadcaster tf_broadcaster;
@@ -124,24 +127,33 @@ private:
     void onCamera(const sensor_msgs::msg::Image::ConstSharedPtr& msg_img, const sensor_msgs::msg::CameraInfo::ConstSharedPtr& msg_ci);
 
     rcl_interfaces::msg::SetParametersResult onParameter(const std::vector<rclcpp::Parameter>& parameters);
+
+    void timerCallback() { detection_timer_done = true; }
 };
 
 RCLCPP_COMPONENTS_REGISTER_NODE(AprilTagNode)
 
 
 AprilTagNode::AprilTagNode(const rclcpp::NodeOptions& options)
-  : Node("apriltag", options),
+  : Node("apriltag_detector", options),
     // parameter
     cb_parameter(add_on_set_parameters_callback(std::bind(&AprilTagNode::onParameter, this, std::placeholders::_1))),
     td(apriltag_detector_create()),
     // topics
-    sub_cam(image_transport::create_camera_subscription(this, "image_rect", std::bind(&AprilTagNode::onCamera, this, std::placeholders::_1, std::placeholders::_2), declare_parameter("image_transport", "raw", descr({}, true)), rmw_qos_profile_sensor_data)),
-    pub_detections(create_publisher<apriltag_msgs::msg::AprilTagDetectionArray>("detections", rclcpp::QoS(1))),
+    sub_cam(image_transport::create_camera_subscription(this, 
+                                                        "image_rect", 
+                                                        std::bind(&AprilTagNode::onCamera, this, std::placeholders::_1, std::placeholders::_2),
+                                                        declare_parameter("image_transport", "raw", descr({}, true)),
+                                                        rmw_qos_profile_sensor_data)),
+    pub_detections(create_publisher<apriltag_msgs::msg::AprilTagDetectionArray>("~/detections", rclcpp::QoS(1))),
     tf_broadcaster(this)
 {
     // read-only parameters
     const std::string tag_family = declare_parameter("family", "36h11", descr("tag family", true));
     tag_edge_size = declare_parameter("size", 1.0, descr("default tag size", true));
+    float min_seconds_between_detections = declare_parameter("min_seconds_between_detections", 1.0, descr("timer interval in ms", true));
+    std::chrono::duration<double> min_seconds_duration(min_seconds_between_detections);
+    detection_timer = create_wall_timer(min_seconds_duration, std::bind(&AprilTagNode::timerCallback, this));
 
     // get tag names, IDs and sizes
     const auto ids = declare_parameter("tag.ids", std::vector<int64_t>{}, descr("tag ids", true));
@@ -192,7 +204,10 @@ AprilTagNode::~AprilTagNode()
 
 void AprilTagNode::onCamera(const sensor_msgs::msg::Image::ConstSharedPtr& msg_img,
                             const sensor_msgs::msg::CameraInfo::ConstSharedPtr& msg_ci)
-{
+{   
+    if(detection_timer_done==false) {
+        return;
+    }
     // precompute inverse projection matrix
     const Mat3 Pinv = Eigen::Map<const Eigen::Matrix<double, 3, 4, Eigen::RowMajor>>(msg_ci->p.data()).leftCols<3>().inverse();
 
@@ -255,6 +270,7 @@ void AprilTagNode::onCamera(const sensor_msgs::msg::Image::ConstSharedPtr& msg_i
     tf_broadcaster.sendTransform(tfs);
 
     apriltag_detections_destroy(detections);
+    detection_timer_done = false;
 }
 
 rcl_interfaces::msg::SetParametersResult

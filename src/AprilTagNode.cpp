@@ -116,7 +116,7 @@ private:
     std::unordered_map<int, double> tag_sizes;
 
     std::function<void(apriltag_family_t*)> tf_destructor;
-
+    
     bool detection_timer_done = true;
     rclcpp::TimerBase::SharedPtr detection_timer;
 
@@ -244,6 +244,17 @@ void AprilTagNode::onCamera(const sensor_msgs::msg::Image::ConstSharedPtr& msg_i
         // reject detections with more corrected bits than allowed
         if(det->hamming > max_hamming) { continue; }
 
+        // 3D orientation and position
+        geometry_msgs::msg::TransformStamped tf;
+        tf.header = msg_img->header;
+        // set child frame name by generic tag name or configured tag name
+        tf.child_frame_id = tag_frames.count(det->id) ? tag_frames.at(det->id) : std::string(det->family->name) + ":" + std::to_string(det->id);
+        getPose(*(det->H), Pinv, tf.transform, tag_sizes.count(det->id) ? tag_sizes.at(det->id) : tag_edge_size);
+
+        // RCLCPP_INFO(get_logger(), "x: %3f y: %3f z: %3f", tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z );
+
+        tfs.push_back(tf);
+        
         // detection
         apriltag_msgs::msg::AprilTagDetection msg_detection;
         msg_detection.family = std::string(det->family->name);
@@ -256,21 +267,15 @@ void AprilTagNode::onCamera(const sensor_msgs::msg::Image::ConstSharedPtr& msg_i
         std::memcpy(msg_detection.homography.data(), det->H->data, sizeof(double) * 9);
         msg_detections.detections.push_back(msg_detection);
 
-        // 3D orientation and position
-        geometry_msgs::msg::TransformStamped tf;
-        tf.header = msg_img->header;
-        // set child frame name by generic tag name or configured tag name
-        tf.child_frame_id = tag_frames.count(det->id) ? tag_frames.at(det->id) : std::string(det->family->name) + ":" + std::to_string(det->id);
-        getPose(*(det->H), Pinv, tf.transform, tag_sizes.count(det->id) ? tag_sizes.at(det->id) : tag_edge_size);
-
-        tfs.push_back(tf);
+        detection_timer_done = false;
     }
 
-    pub_detections->publish(msg_detections);
     tf_broadcaster.sendTransform(tfs);
+    std::chrono::nanoseconds sleep_duration(static_cast<int64_t>(0.5 * 1e9));
+    rclcpp::sleep_for(sleep_duration);
+    pub_detections->publish(msg_detections);
 
     apriltag_detections_destroy(detections);
-    detection_timer_done = false;
 }
 
 rcl_interfaces::msg::SetParametersResult
